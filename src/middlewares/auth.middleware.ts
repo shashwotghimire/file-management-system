@@ -7,7 +7,7 @@ interface TokenPayload extends JwtPayload {
   email: string;
 }
 
-interface AuthRequest extends Request {
+export interface AuthRequest extends Request {
   user: TokenPayload;
 }
 

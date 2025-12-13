@@ -20,12 +20,29 @@ model User {
   password  String
   createdAt DateTime @default(now())
   folders   Folder[]
+  files     File[]
 }
 
 model Folder {
   id         String   @id @default(cuid())
-  name       String   @unique
+  name       String
   ownerId    String
   owner      User     @relation(fields: [ownerId], references: [id])
   uploadedAt DateTime @default(now())
+  files      File[]
+
+  @@unique([name, ownerId])
+}
+
+model File {
+  id         String   @id @default(cuid())
+  name       String
+  path       String
+  size       Int
+  uploadDate DateTime @default(now())
+  mimeType   String
+  folderId   String?
+  folder     Folder?  @relation(fields: [folderId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
 }
