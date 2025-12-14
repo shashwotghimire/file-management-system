@@ -12,28 +12,39 @@ export interface AuthRequest extends Request {
 }
 
 export const authMiddleware = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   try {
     const authHeaders = req.headers.authorization;
-    if (!authHeaders || !authHeaders.startsWith("Bearer")) {
-      return res.status(401).json({
+    if (!authHeaders || !authHeaders.startsWith("Bearer ")) {
+      res.status(401).json({
         success: false,
         message: "Unauthorized",
         error: "Missing/Invalid token or expired",
       });
+      return;
     }
-    const token: any = authHeaders.split(" ")[1];
+    const parts = authHeaders.split(" ");
+    const token = parts[1];
+    if (!token) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        error: "Missing token",
+      });
+      return;
+    }
     const decoded = verifyToken(token) as TokenPayload;
-    req.user = decoded;
+    (req as AuthRequest).user = decoded;
     next();
   } catch (e) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: "Unauthorized",
       error: "Token expired or invalid",
     });
+    return;
   }
 };

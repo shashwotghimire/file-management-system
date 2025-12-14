@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from "express";
+import { ZodError } from "zod";
+import { MulterError } from "multer";
 
 export const errorHandler = (
   err: any,
@@ -6,11 +8,43 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  const statusCode = err.statusCode || 500;
-  const errorMessage = err.message || "Internal server error";
+  let statusCode = 500;
+  let message = "Error processing request";
+  let error = "Internal server error";
+  let validationErrors: any = undefined;
+
+  if (err instanceof ZodError) {
+    statusCode = 400;
+    return res.status(statusCode).json({
+      success: false,
+      message: "Error processing request",
+      error: "Invalid request payload",
+      validationErrors: err.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+  } else if (err instanceof MulterError) {
+    statusCode = 400;
+    message = "File upload error";
+    error = err.message;
+  } else if (err?.code && err?.meta) {
+    statusCode = 400;
+    message = "Database error";
+    error = err.message;
+  } else if (err.statusCode) {
+    statusCode = err.statusCode;
+    message = err.message || message;
+    error = err.details || err.error || "An error occurred";
+  } else {
+    console.error("Unknown error: ", err);
+    error = err.message || err.stack || "Internal server error";
+  }
+
   return res.status(statusCode).json({
     success: false,
-    message: "Something went wrong ",
-    error: errorMessage,
+    message,
+    error,
+    ...(validationErrors ? { validationErrors } : {}),
   });
 };

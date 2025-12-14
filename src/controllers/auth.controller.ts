@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { signToken, verifyToken } from "../utils/jwt.utils";
+import { signToken } from "../utils/jwt.utils";
 import { hashPassword, verifyPassword } from "../utils/hashPassword.utils";
 import { prisma } from "../utils/prisma.utils";
 
+// Register user
 export const registerUser = async (
   req: Request,
   res: Response,
@@ -10,35 +11,22 @@ export const registerUser = async (
 ) => {
   try {
     const { email, password, username } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Error registering user",
-        error: "Missing email or password",
-        validationErrors: "",
-      });
-    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Error registering user",
-        error: "user with that email already exists",
-        validationError: "",
-      });
+      throw new Error("User with that email already exists");
     }
+
     const hashedPassword = await hashPassword(password);
     const user = await prisma.user.create({
       data: { email, password: hashedPassword, username },
     });
-    const accessToken = signToken({
-      id: user.id,
-      email: user.email,
-    });
+
+    const accessToken = signToken({ id: user.id, email: user.email });
+
     return res.status(201).json({
       success: true,
-      message: "user registered successfully",
+      message: "User registered successfully",
       data: {
         id: user.id,
         email: user.email,
@@ -48,10 +36,11 @@ export const registerUser = async (
       },
     });
   } catch (e) {
-    next(e);
+    next(e); // all errors go to errorHandler now
   }
 };
 
+// Login user
 export const loginUser = async (
   req: Request,
   res: Response,
@@ -59,40 +48,14 @@ export const loginUser = async (
 ) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Error logging in user",
-        error: "Missing email or password",
-        validationError: "",
-      });
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !(await verifyPassword(password, user.password))) {
+      throw new Error("Invalid email or password");
     }
-    const user = await prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "Error logging in user",
-        error: "Invalid email or password",
-        validationError: "",
-      });
-    }
-    const hashedPassword = user.password;
-    if (!(await verifyPassword(password, hashedPassword))) {
-      return res.status(400).json({
-        success: false,
-        message: "Error loggin in user",
-        error: "Invalid email or password",
-        validationError: "",
-      });
-    }
-    const accessToken = signToken({
-      id: user.id,
-      email: user.email,
-    });
+
+    const accessToken = signToken({ id: user.id, email: user.email });
+
     return res.status(200).json({
       success: true,
       message: "Logged in successfully",
@@ -106,6 +69,6 @@ export const loginUser = async (
       },
     });
   } catch (e) {
-    next(e);
+    next(e); // all errors go to errorHandler now
   }
 };
